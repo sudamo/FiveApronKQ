@@ -1,18 +1,22 @@
 ﻿using System;
 using System.IO;
+using System.Web;
+using System.Web.Script.Serialization;
 using System.Net;
 using System.Text;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Collections;
 using System.Collections.Generic;
-using System.Web.Script.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Aspose.Cells;
 
 namespace DevFiveApron.Bzi
 {
     using QF.BPMN.Business;
+    using QF.BPMN.Web.Common;
     using QF.BPMN.Web.EntityDataModel;
 
     /// <summary>
@@ -282,7 +286,187 @@ namespace DevFiveApron.Bzi
         /// <returns></returns>
         public static string KQ_Export(Entities objContext, string pParams)
         {
-            return "还未部署上系统......";
+            try
+            {
+                DataTable dt, dt2;
+
+                string strProcedure, strProcedure2;
+                DateTime dtParm = Convert.ToDateTime(pParams);
+                DateTime dtNow = DateTime.Now;
+                int Month = (dtNow.Year - dtParm.Year) * 12 + (dtNow.Month - dtParm.Month);
+                if (Month <= 0)
+                {
+                    strProcedure = "DM_P_KQReport 0";
+                    strProcedure2 = "DM_P_KQReportS2 0";
+                }
+                else
+                {
+                    strProcedure = "DM_P_KQReport -" + Month;
+                    strProcedure2 = "DM_P_KQReportS2 -" + Month;
+                }
+
+                dt = DBFactory.GetDataTable(objContext, strProcedure, null, null);
+                dt2 = DBFactory.GetDataTable(objContext, strProcedure2, null, null);
+
+                return DataTableToExcel(dt, dt2, pParams.Substring(0, 4) + "年" + pParams.Substring(5, 2) + "月");
+            }
+            catch (Exception ex)
+            {
+                return "Error:" + ex.Message;
+            }
         }
+
+        /// <summary>
+        /// 导出Excel文件
+        /// </summary>
+        /// <param name="pKQ">数据集</param>
+        /// <returns></returns>
+        internal static string DataTableToExcel(DataTable pKQ, DataTable pDK, string pParams)
+        {
+            string pYearMonth = pParams.Substring(0, 4) + "年" + pParams.Substring(5, 2) + "月";
+            if (pKQ == null || pKQ.Rows.Count <= 0)
+                return "Error:没有考勤数据";
+            if (pDK == null || pDK.Rows.Count == 0)
+                return "Error:没有打卡数据";
+
+            DateTime now = DateTime.Now;
+            Workbook workbook;
+            try
+            {
+                //打开模板
+                string filePath = "doc\\";
+                string phyPath = HttpContext.Current.Server.MapPath(filePath);
+
+                DirectoryInfo di = new DirectoryInfo(phyPath);
+                string tempPath = di.Parent.Parent.GetDirectories("WebUI")[0].FullName + "\\doc\\Template\\";
+                string fileName = "考勤记录模板.xlsx";
+
+                if (!File.Exists(tempPath + fileName))
+                    return "Error:找不到导出模板";
+
+                workbook = new Workbook(tempPath + fileName);
+
+                //考勤表
+                Worksheet worksheet = workbook.Worksheets[0];
+                Cells cells = worksheet.Cells;
+                Worksheet worksheet2 = workbook.Worksheets[1];
+                worksheet2.AutoFitRows(4, pKQ.Rows.Count + 4);
+                Cells cells2 = worksheet2.Cells;
+
+                string strTitle = "广州五号停机坪商业经营管理有限公司" + pYearMonth + "考勤表";
+                Cell cell = cells[0, 0];
+                cell.PutValue(strTitle);
+                string strTitle2 = "员工打卡记录" + pYearMonth + "报表";
+                Cell cell2 = cells2[0, 0];
+                cell2.PutValue(strTitle2);
+
+                int rowNumber = pKQ.Rows.Count;
+                int columnNumber = pKQ.Columns.Count;
+
+                int rowNumber2 = pDK.Rows.Count;
+                int columnNumber2 = pDK.Columns.Count;
+
+                //遍历DataTable行
+                for (int r = 0; r < rowNumber; r++)
+                    for (int c = 0; c < columnNumber; c++)
+                        cells[r + 4, c].PutValue(pKQ.Rows[r][c]);
+
+                //处理星期
+                string strZQ = "考勤周期:" + pYearMonth;
+                cells2[1, 0].PutValue(strZQ);
+                string[] strWeek = new string[] { "日", "一", "二", "三", "四", "五", "六" };
+                DateTime dateRP = DateTime.Parse(pParams);
+                int FirstDW = (int)dateRP.DayOfWeek;
+
+                string[] wks = new string[DateTime.DaysInMonth(dateRP.Year, dateRP.Month)];
+                for (int i = 0; i < wks.Length; i++)
+                {
+                    wks[i] = strWeek[(i + FirstDW) % 7];
+                }
+
+                for (int i = 0; i < wks.Length; i++)
+                {
+                    cells2[2, i + 4].PutValue(wks[i]);
+                }
+
+                //Style style = workbook.CreateStyle();
+                //style.Font.Color = System.Drawing.Color.Red;
+                //Style style;
+
+                for (int r = 0; r < rowNumber2; r++)
+                    for (int c = 0; c < columnNumber2; c++)
+                    {
+                        cells2[r + 4, c].PutValue(pDK.Rows[r][c]);
+                        //if (pKQ.Rows[r][c] != null && pKQ.Rows[r][c].ToString().IndexOf("[") > 0)
+                        //{
+                        //    style = cells2[r + 4, c].GetStyle();
+                        //    style.Font.Color = System.Drawing.Color.Red;
+                        //    cells2[r + 4, c].SetStyle(style);
+                        //}
+                    }
+
+                //打卡记录
+
+
+                //保存Excel文件
+                //string filePath = System.Configuration.ConfigurationManager.AppSettings["exportFilesPath"].ToString();
+
+                string savePath = di.Parent.Parent.GetDirectories("WebUI")[0].FullName + "\\doc\\";
+                fileName = now.ToString("yyyyMMddHHmmssfff") + ".xlsx";
+
+                if (!Directory.Exists(savePath))
+                    Directory.CreateDirectory(savePath);
+
+                workbook.Save(savePath + fileName, SaveFormat.Xlsx);
+
+                return filePath + fileName;
+            }
+            catch (Exception e)
+            {
+                return "Error:" + e.Message;
+            }
+            finally
+            {
+                workbook = null;
+            }
+        }
+
+        #region
+        
+        //try
+        //{
+        //    DataTable dt;
+        //    if (pParams == "2019-12-01")
+        //    {
+        //        dt = DBFactory.GetDataTable(objContext, "DM_P_KQReport", null, DBFactory.Factory.CreateParameter("YMD", pParams));
+        //    }
+        //    else
+        //    {
+        //        dt = DBFactory.GetDataTable(objContext, "DM_P_KQReport", null, DBFactory.Factory.CreateParameter("@YMD", pParams));
+        //    }
+
+        //}
+        //catch (Exception ex)
+        //{
+        //    return "Error:" + ex.Message;
+        //}
+
+
+        //SqlParameter[] parms = new SqlParameter[]
+        //{
+        //    new SqlParameter("@YearMonth",SqlDbType.VarChar)
+        //};
+        //parms[0].Value = pParams;
+
+        //var dts = objContext.ExecuteStoreQuery<DataTable>("DM_P_KQReport", parms);
+
+        //foreach (var dt in dts)
+        //{
+        //    if (dt == null || dt.Rows.Count == 0)
+        //        continue;
+        //    strReturn += DataTableToExcel(dt, null, dYearMonth.Year.ToString() + "年" + dYearMonth.Month.ToString() + "月");
+        //    break;
+        //}
+        #endregion
     }
 }
