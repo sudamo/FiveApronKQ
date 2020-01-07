@@ -29,7 +29,7 @@ namespace DevFiveApron.Bzi
             //}
 
             DateTime now = DateTime.Now;
-            if (now.Hour == 10 && now.Minute <= interval)
+            if ((now.Hour == 10 || now.Hour == 1) && now.Minute <= interval)
             {
                 log.Info("Execute KQ_Syn:" + now.ToString("yyyy-MM-dd HH:mm:ss"));
                 CustHandler.KQ_Syn(objContext, now.ToString("yyyy-MM-dd"));
