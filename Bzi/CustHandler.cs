@@ -5,8 +5,6 @@ using System.Web.Script.Serialization;
 using System.Net;
 using System.Text;
 using System.Data;
-using System.Data.Common;
-using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
@@ -33,25 +31,25 @@ namespace DevFiveApron.Bzi
         public CustHandler() { }
         #endregion
 
-        public static string KQ_Test(Entities objContext, string pParams)
-        {
-            SqlParameter[] parms = new SqlParameter[]
-            {
-                new SqlParameter("@ID", DbType.Int32)
-            };
-            parms[0].Value = 1;
+        //public static string KQ_Test(Entities objContext, string pParams)
+        //{
+        //    SqlParameter[] parms = new SqlParameter[]
+        //    {
+        //        new SqlParameter("@ID", DbType.Int32)
+        //    };
+        //    parms[0].Value = 1;
 
-            try
-            {
-                objContext.ExecuteStoreCommand("UPDATE Sys_User SET PwdChangeDate = GETDATE() WHERE ID = @ID", parms);
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
+        //    try
+        //    {
+        //        objContext.ExecuteStoreCommand("UPDATE Sys_User SET PwdChangeDate = GETDATE() WHERE ID = @ID", parms);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return ex.Message;
+        //    }
 
-            return "TestDll 测试成功[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]";
-        }
+        //    return "TestDll 测试成功[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]";
+        //}
 
         /// <summary>
         /// 
@@ -99,8 +97,9 @@ namespace DevFiveApron.Bzi
             #region 获取云数据、并同步
             try
             {
+                int iDays = DateTime.DaysInMonth(dYearMonth.Year, dYearMonth.Month);
                 //获取云数据
-                for (int i = 0; i < DateTime.DaysInMonth(dYearMonth.Year, dYearMonth.Month); i++)
+                for (int i = 0; i < iDays; i++)
                 {
                     dVar = dYearMonth.AddDays(i);
                     if (dVar.CompareTo(DateTime.Now) >= 0)
@@ -130,69 +129,6 @@ namespace DevFiveApron.Bzi
             {
                 return ex.Message;
             }
-            #endregion
-
-            #region 同步数据
-            //try
-            //{
-            //    strSQL = @"BEGIN TRANSACTION
-            // --根据员工姓名更新Emp,time,BanChi
-            //    UPDATE A SET Emp = ISNULL(B.EmpID,0),A.[time] = DATEADD(DD,DATEDIFF(DAY,A.[time],A.[date]),A.[time])
-            //        ,A.BanChi = (SELECT MAX(ISNULL(C.RoleID,376)) FROM Sys_UserRole C WHERE B.ID = C.UserId AND C.RoleID IN(SELECT D.ID FROM Sys_Role D WHERE C.RoleID = D.ID AND D.GroupID = 7 AND D.Forbidden = 0))	--可以提下到OA_AttendanceRecord_TR设置班次
-            //    FROM OA_KQ_Trans A
-            //    INNER JOIN Sys_User B ON A.staff_name = B.Name AND B.IsLock = 0 AND B.Forbidden = 0
-            //    WHERE Emp = 0;
-            // --根据OA_KQ_Trans（Emp,date）更新考勤云记录
-            //    MERGE INTO OA_AttendanceRecord_TR T
-            //    USING
-            //    (
-            //    SELECT Emp EID,BanChi,[date] OnDate,MIN([time]) OnTime,MAX([time]) OffTime,COUNT(*) RCount
-            //    FROM OA_KQ_Trans
-            //    WHERE fstatus = 0 AND Emp <> 0
-            //    GROUP BY emp,BanChi,[date]
-            //    ) AS O ON O.EID = T.EID AND O.OnDate = T.OnDate
-            //    WHEN MATCHED
-            //     THEN UPDATE SET OnTime = O.OnTime,OffTime = O.OffTime,RCount = O.RCount
-            //    WHEN NOT MATCHED
-            //        THEN INSERT(EID,OnDate,OnTime,OffTime,RCount,BanChi,FStatus)
-            //     VALUES(O.EID,O.OnDate,O.OnTime,O.OffTime,O.RCount,O.BanChi,0);
-            // --设置OA_KQ_Trans状态fstatus = 1标识新数据库已经同步到考勤云记录OA_AttendanceRecord_TR
-            //    UPDATE OA_KQ_Trans SET fstatus = 1 WHERE fstatus = 0;
-            // --根据班次设置考勤云记录班次字段值(OnTimeBC,OffTimeBC)
-            // UPDATE A SET OnTimeBC = CASE B.[Name] WHEN NULL THEN NULL ELSE CONVERT(DATETIME,CONVERT(VARCHAR(4),YEAR(A.OnDate)) + ' ' + REPLACE(SUBSTRING(B.[Name],3,CHARINDEX('-',B.[Name]) - 3),'：',':'),109) END
-            //    ,OffTimeBC = CASE B.[Name] WHEN NULL THEN NULL ELSE CONVERT(DATETIME,CONVERT(VARCHAR(4),YEAR(A.OnDate)) + ' ' + REPLACE(SUBSTRING(B.[Name],CHARINDEX('-',B.[Name]) + 1,LEN(B.[Name]) - CHARINDEX('-',B.[Name])),'：',':'),109) END
-            // FROM OA_AttendanceRecord_TR A
-            // LEFT JOIN Sys_Role B ON A.BanChi = B.ID
-            // WHERE A.BanChi IS NOT NULL AND A.FStatus = 0;
-            // --更新OnTime，OffTime
-            // --UPDATE OA_AttendanceRecord_TR SET FDescription = CASE WHEN OnTime > OnTimeBC THEN CASE WHEN OffTime < OffTimeBC THEN '早退且迟到' ELSE '早退' END WHEN OffTime < OffTimeBC THEN '迟到' ELSE '' END
-            // --WHERE FStatus = 0;
-            // UPDATE OA_AttendanceRecord_TR SET OnTime = CASE WHEN OnTime = OffTime THEN CASE WHEN OnTime > OffTimeBC THEN NULL ELSE OnTime END ELSE OnTime END,
-            // OffTime = CASE WHEN OnTime = OffTime THEN CASE WHEN OffTime < OnTimeBC THEN NULL ELSE OffTime END ELSE OffTime END
-            // WHERE FStatus = 0;
-            // --根据考勤云记录更新到考勤记录
-            // MERGE INTO OA_AttendanceRecord T
-            //    USING
-            //    (
-            //    SELECT EID,BanChi,OnDate,OnTime,OffTime,FDescription
-            //    FROM OA_AttendanceRecord_TR
-            //    WHERE FStatus = 0
-            //    ) AS O ON O.EID = T.EID AND O.OnDate = T.OnDate
-            //    WHEN MATCHED
-            //     THEN UPDATE SET OnTime = O.OnTime,OffTime = O.OffTime,Note = FDescription
-            //    WHEN NOT MATCHED
-            //        THEN INSERT(EID,BanChi,OnDate,OnTime,OffTime,Note,OnState,OffState,OnDataSource,OffDataSource,OnPlace,OffPlace)
-            //     VALUES(O.EID,O.BanChi,O.OnDate,O.OnTime,O.OffTime,O.FDescription,1,1,1,1,'','');
-            // --设置OA_AttendanceRecord_TR状态FStatus = 1标识新数据库已经同步到考勤记录OA_AttendanceRecord
-            //    UPDATE OA_AttendanceRecord_TR SET FStatus = 1 WHERE FStatus = 0;
-            //COMMIT;";
-
-            //    objContext.ExecuteStoreCommand(strSQL);
-            //}
-            //catch (Exception ex)
-            //{
-            //    return ex.Message;
-            //}
             #endregion
 
             return "上传成功";
@@ -389,28 +325,11 @@ namespace DevFiveApron.Bzi
                     cells2[2, i + 4].PutValue(wks[i]);
                 }
 
-                //Style style = workbook.CreateStyle();
-                //style.Font.Color = System.Drawing.Color.Red;
-                //Style style;
-
                 for (int r = 0; r < rowNumber2; r++)
                     for (int c = 0; c < columnNumber2; c++)
-                    {
                         cells2[r + 4, c].PutValue(pDK.Rows[r][c]);
-                        //if (pKQ.Rows[r][c] != null && pKQ.Rows[r][c].ToString().IndexOf("[") > 0)
-                        //{
-                        //    style = cells2[r + 4, c].GetStyle();
-                        //    style.Font.Color = System.Drawing.Color.Red;
-                        //    cells2[r + 4, c].SetStyle(style);
-                        //}
-                    }
-
-                //打卡记录
-
 
                 //保存Excel文件
-                //string filePath = System.Configuration.ConfigurationManager.AppSettings["exportFilesPath"].ToString();
-
                 string savePath = di.Parent.Parent.GetDirectories("WebUI")[0].FullName + "\\doc\\";
                 fileName = now.ToString("yyyyMMddHHmmssfff") + ".xlsx";
 
@@ -430,43 +349,5 @@ namespace DevFiveApron.Bzi
                 workbook = null;
             }
         }
-
-        #region
-        
-        //try
-        //{
-        //    DataTable dt;
-        //    if (pParams == "2019-12-01")
-        //    {
-        //        dt = DBFactory.GetDataTable(objContext, "DM_P_KQReport", null, DBFactory.Factory.CreateParameter("YMD", pParams));
-        //    }
-        //    else
-        //    {
-        //        dt = DBFactory.GetDataTable(objContext, "DM_P_KQReport", null, DBFactory.Factory.CreateParameter("@YMD", pParams));
-        //    }
-
-        //}
-        //catch (Exception ex)
-        //{
-        //    return "Error:" + ex.Message;
-        //}
-
-
-        //SqlParameter[] parms = new SqlParameter[]
-        //{
-        //    new SqlParameter("@YearMonth",SqlDbType.VarChar)
-        //};
-        //parms[0].Value = pParams;
-
-        //var dts = objContext.ExecuteStoreQuery<DataTable>("DM_P_KQReport", parms);
-
-        //foreach (var dt in dts)
-        //{
-        //    if (dt == null || dt.Rows.Count == 0)
-        //        continue;
-        //    strReturn += DataTableToExcel(dt, null, dYearMonth.Year.ToString() + "年" + dYearMonth.Month.ToString() + "月");
-        //    break;
-        //}
-        #endregion
     }
 }

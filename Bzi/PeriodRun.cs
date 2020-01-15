@@ -20,19 +20,11 @@ namespace DevFiveApron.Bzi
         /// <param name="log">日志</param>
         public void Run(Entities objContext, uint interval, log4net.ILog log)
         {
-            //DateTime now = DateTime.Now;
-            //string str = now.ToString("yyyy-MM-dd HH:mm:ss");
-            //log.Info("KQ_Syn:" + str);
-            //if (now.Hour == 15 && now.Minute > 40 && now.Minute <= 45)
-            //{
-            //    objContext.ExecuteStoreCommand("UPDATE Sys_User SET PwdChangeDate = GETDATE() WHERE ID = 1");
-            //}
-
             DateTime now = DateTime.Now;
             if ((now.Hour == 10 || now.Hour == 1) && now.Minute <= interval)
             {
-                log.Info("Execute KQ_Syn:" + now.ToString("yyyy-MM-dd HH:mm:ss"));
                 CustHandler.KQ_Syn(objContext, now.ToString("yyyy-MM-dd"));
+                log.Info("Execute KQ_Syn:" + now.ToString("yyyy-MM-dd HH:mm:ss"));
             }
         }
     }
