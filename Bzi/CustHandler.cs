@@ -27,42 +27,45 @@ namespace DevFiveApron.Bzi
         private const string _client_id = "F1A785B1-86C3-4B19-8D1C-C4395AABB9C2";
         private const string _client_secret = "580C040E-7949-4145-9DF7-42CD17563E83";
         private const string _cmp_id = "17125";
+        private static bool _Permission = true;//许可
+        private static int _InterVal = 7;//使用月份，2020-01-01开始计算
 
         public CustHandler() { }
         #endregion
 
-        //public static string KQ_Test(Entities objContext, string pParams)
-        //{
-        //    SqlParameter[] parms = new SqlParameter[]
-        //    {
-        //        new SqlParameter("@ID", DbType.Int32)
-        //    };
-        //    parms[0].Value = 1;
-
-        //    try
-        //    {
-        //        objContext.ExecuteStoreCommand("UPDATE Sys_User SET PwdChangeDate = GETDATE() WHERE ID = @ID", parms);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return ex.Message;
-        //    }
-
-        //    return "TestDll 测试成功[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]";
-        //}
-
+        #region 清楚缓存
         /// <summary>
-        /// 
+        /// 清楚缓存
         /// </summary>
         /// <param name="objContext"></param>
         /// <param name="pParams"></param>
         /// <returns></returns>
         public static string KQ_Clear(Entities objContext, string pParams)
         {
+            string strPer = Validation_Permission(objContext);
+            if (strPer != string.Empty)
+                return strPer;
+
             objContext.ExecuteStoreCommand("TRUNCATE TABLE OA_KQ_Trans");
             return "清除缓存成功。";
         }
+        #endregion
 
+        #region 状态设置
+        public static int GetKQStatus(Entities objContext, string pParms)
+        {
+            string strSQL = "SELECT LValue FROM DM_Status WHERE PID = 1";
+            return objContext.ExecuteStoreCommand(strSQL);
+        }
+
+        public static void UpdateKQStatus(Entities objContext, string pValue)
+        {
+            string strSQL = string.Format("UPDATE DM_Status SET LValue = {0}, ModiDate = GETDATE() WHERE PID = 1", pValue);
+            objContext.ExecuteStoreCommand(strSQL);
+        }
+        #endregion
+
+        #region 同步考勤记录
         /// <summary>
         /// 上传到OA_KQ_Trans
         /// </summary>
@@ -71,6 +74,10 @@ namespace DevFiveApron.Bzi
         /// <returns></returns>
         public static string KQ_Syn(Entities objContext, string pParams)
         {
+            string strPer = Validation_Permission(objContext);
+            if (strPer != string.Empty)
+                return strPer;
+
             string token = string.Empty, strJson = string.Empty, strSQL;
             DateTime dYearMonth, dVar;
             DataTable dt = new DataTable();
@@ -133,6 +140,51 @@ namespace DevFiveApron.Bzi
 
             return "上传成功";
         }
+        #endregion
+
+        #region 导出考勤报表
+        /// <summary>
+        /// Report
+        /// </summary>
+        /// <param name="objContext"></param>
+        /// <param name="pParams"></param>
+        /// <returns></returns>
+        public static string KQ_Export(Entities objContext, string pParams)
+        {
+            string strPer = Validation_Permission(objContext);
+            if (strPer != string.Empty)
+                return strPer;
+
+            try
+            {
+                DataTable dt, dt2;
+
+                string strProcedure, strProcedure2;
+                DateTime dtParm = Convert.ToDateTime(pParams);
+                DateTime dtNow = DateTime.Now;
+                int Month = (dtNow.Year - dtParm.Year) * 12 + (dtNow.Month - dtParm.Month);
+                if (Month <= 0)
+                {
+                    strProcedure = "DM_P_KQReport 0";
+                    strProcedure2 = "DM_P_KQReportS2 0";
+                }
+                else
+                {
+                    strProcedure = "DM_P_KQReport -" + Month;
+                    strProcedure2 = "DM_P_KQReportS2 -" + Month;
+                }
+
+                dt = DBFactory.GetDataTable(objContext, strProcedure, null, null);
+                dt2 = DBFactory.GetDataTable(objContext, strProcedure2, null, null);
+
+                return DataTableToExcel(dt, dt2, pParams.Substring(0, 4) + "年" + pParams.Substring(5, 2) + "月");
+            }
+            catch (Exception ex)
+            {
+                return "Error:" + ex.Message;
+            }
+        }
+        #endregion
 
         #region 获取云数据
         /// <summary>
@@ -214,44 +266,7 @@ namespace DevFiveApron.Bzi
         }
         #endregion
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="objContext"></param>
-        /// <param name="pParams"></param>
-        /// <returns></returns>
-        public static string KQ_Export(Entities objContext, string pParams)
-        {
-            try
-            {
-                DataTable dt, dt2;
-
-                string strProcedure, strProcedure2;
-                DateTime dtParm = Convert.ToDateTime(pParams);
-                DateTime dtNow = DateTime.Now;
-                int Month = (dtNow.Year - dtParm.Year) * 12 + (dtNow.Month - dtParm.Month);
-                if (Month <= 0)
-                {
-                    strProcedure = "DM_P_KQReport 0";
-                    strProcedure2 = "DM_P_KQReportS2 0";
-                }
-                else
-                {
-                    strProcedure = "DM_P_KQReport -" + Month;
-                    strProcedure2 = "DM_P_KQReportS2 -" + Month;
-                }
-
-                dt = DBFactory.GetDataTable(objContext, strProcedure, null, null);
-                dt2 = DBFactory.GetDataTable(objContext, strProcedure2, null, null);
-
-                return DataTableToExcel(dt, dt2, pParams.Substring(0, 4) + "年" + pParams.Substring(5, 2) + "月");
-            }
-            catch (Exception ex)
-            {
-                return "Error:" + ex.Message;
-            }
-        }
-
+        #region 导出到Excel
         /// <summary>
         /// 导出Excel文件
         /// </summary>
@@ -349,5 +364,38 @@ namespace DevFiveApron.Bzi
                 workbook = null;
             }
         }
+        #endregion
+
+        #region Set_Permission
+        /// <summary>
+        /// Set Permission
+        /// </summary>
+        /// <param name="objContext"></param>
+        /// <returns></returns>
+        internal static string Validation_Permission(Entities objContext)
+        {
+            string strReturn = "程序试用期已过，请联系开发人员。";
+            if (_Permission)
+                return string.Empty;
+
+            string strProcedure = "SP_HR_YearMonth -" + _InterVal.ToString();
+
+            try
+            {
+                DataTable dt = DBFactory.GetDataTable(objContext, strProcedure, null, null);
+                if (dt == null || dt.Rows.Count == 0)
+                    return strReturn;
+
+                if (dt.Rows[0]["CHECKED"].ToString() != "UPSET")
+                    return string.Empty;
+
+                return strReturn;
+            }
+            catch
+            {
+                return strReturn;
+            }
+        }
+        #endregion
     }
 }
