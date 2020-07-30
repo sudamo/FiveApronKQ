@@ -36,7 +36,8 @@
     <Reference Include="Aspose.Cells">
       <HintPath>..\DLL\Aspose.Cells.dll</HintPath>
     </Reference>
-    <Reference Include="log4net">
+    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\DLL\log4net.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
@@ -46,14 +47,16 @@
     <Reference Include="PageOffice">
       <HintPath>..\DLL\PageOffice.dll</HintPath>
     </Reference>
-    <Reference Include="QF.BPMN.Web">
+    <Reference Include="QF.BPMN.Web, Version=8.8.0.0, Culture=neutral, PublicKeyToken=3d40b1b90b29043e, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\DLL\QF.BPMN.Web.dll</HintPath>
     </Reference>
     <Reference Include="QF.Common, Version=8.8.0.0, Culture=neutral, PublicKeyToken=0842fb7c373af372, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\DLL\QF.Common.dll</HintPath>
     </Reference>
-    <Reference Include="QF.OA.Web">
+    <Reference Include="QF.OA.Web, Version=8.8.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\DLL\QF.OA.Web.dll</HintPath>
     </Reference>
     <Reference Include="System" />

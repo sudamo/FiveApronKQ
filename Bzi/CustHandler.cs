@@ -33,9 +33,9 @@ namespace DevFiveApron.Bzi
         public CustHandler() { }
         #endregion
 
-        #region 清楚缓存
+        #region 清除缓存
         /// <summary>
-        /// 清楚缓存
+        /// 清除缓存
         /// </summary>
         /// <param name="objContext"></param>
         /// <param name="pParams"></param>
